@@ -6,7 +6,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
-    <application android:name=".ChronoApp" android:allowBackup="true" android:label="Chrono" android:theme="@style/Theme.Chrono" android:usesCleartextTraffic="false">
+    <application android:name=".ChronoApp" android:allowBackup="true" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:label="Chrono" android:theme="@style/Theme.Chrono" android:usesCleartextTraffic="false">
         <activity android:name=".alarm.AlarmActivity" android:exported="true" android:showWhenLocked="true" android:turnScreenOn="true" android:excludeFromRecents="true" />
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
