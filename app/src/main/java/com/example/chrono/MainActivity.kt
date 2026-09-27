@@ -16,6 +16,8 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -163,7 +165,7 @@ private fun TimerEditor(timer: Timer, onBack: () -> Unit, onSave: (Timer) -> Uni
     var secondsTouched by remember(timer.id) { mutableStateOf(false) }
     BackHandler(onBack = onBack)
     Scaffold(containerColor = Ink, topBar = { Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, "Назад", tint = Color.White) }; Text("Настройка таймера", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.SemiBold) } }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 24.dp, vertical = 18.dp)) {
+        Column(Modifier.fillMaxSize().padding(padding).imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 18.dp)) {
             Text("НАЗВАНИЕ", color = Muted, fontSize = 11.sp, letterSpacing = 2.sp)
             OutlinedTextField(name, { name = it }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), singleLine = true, label = { Text("Название") }, colors = fieldColors())
             Spacer(Modifier.height(32.dp)); Text("ДЛИТЕЛЬНОСТЬ", color = Muted, fontSize = 11.sp, letterSpacing = 2.sp)
@@ -172,12 +174,13 @@ private fun TimerEditor(timer: Timer, onBack: () -> Unit, onSave: (Timer) -> Uni
                 OutlinedTextField(minutes, { minutes = it.filter(Char::isDigit).take(2); minutesTouched = true }, modifier = Modifier.weight(1f).onFocusChanged { if (it.isFocused && !minutesTouched) { minutes = ""; minutesTouched = true } }, label = { Text("Минуты") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = fieldColors())
                 OutlinedTextField(seconds, { seconds = it.filter(Char::isDigit).take(2); secondsTouched = true }, modifier = Modifier.weight(1f).onFocusChanged { if (it.isFocused && !secondsTouched) { seconds = ""; secondsTouched = true } }, label = { Text("Секунды") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), colors = fieldColors())
             }
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(28.dp))
             Button(onClick = {
                 val duration = (hours.toLongOrNull() ?: 0) * 3_600_000L + (minutes.toLongOrNull() ?: 0) * 60_000L + (seconds.toLongOrNull() ?: 0) * 1_000L
                 if (duration > 0) onSave(timer.copy(name = name.trim().ifBlank { timer.name }, durationMs = duration, remainingMs = duration, endsAtMs = null, running = false, alarming = false))
             }, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Lime, contentColor = Ink)) { Text("Сохранить", fontWeight = FontWeight.Bold) }
-            TextButton(onClick = { onDelete(timer.id) }, modifier = Modifier.fillMaxWidth().padding(top = 6.dp)) { Icon(Icons.Default.Delete, null, tint = Color(0xFFFF5C63)); Spacer(Modifier.width(8.dp)); Text("Удалить таймер", color = Color(0xFFFF5C63)) }
+            Spacer(Modifier.height(12.dp))
+            Button(onClick = { onDelete(timer.id) }, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF242B28), contentColor = Color(0xFFFF5C63))) { Icon(Icons.Default.Delete, null); Spacer(Modifier.width(8.dp)); Text("Удалить таймер", fontWeight = FontWeight.Bold) }
         }
     }
 }
