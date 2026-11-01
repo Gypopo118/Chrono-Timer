@@ -23,7 +23,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Pause
@@ -50,6 +49,7 @@ import kotlinx.coroutines.launch
 
 private val Ink = Color(0xFF090B0A)
 private val Surface = Color(0xFF151916)
+private val SurfaceRaised = Color(0xFF1E2420)
 private val Lime = Color(0xFFB8F36D)
 private val Muted = Color(0xFF8B938D)
 
@@ -110,22 +110,27 @@ class MainActivity : ComponentActivity() {
 private fun HomeScreen(timers: List<Timer>, onSelect: (Timer) -> Unit, onAdd: () -> Unit, onToggle: (Timer) -> Unit, onReset: (Timer) -> Unit, onPermissions: () -> Unit) {
     var clock by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) { while (true) { delay(500); clock = System.currentTimeMillis() } }
-    Scaffold(containerColor = Ink, floatingActionButton = { FloatingActionButton(onClick = onAdd, containerColor = Lime, contentColor = Ink) { Icon(Icons.Default.Add, "Добавить таймер") } }) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 22.dp)) {
-            Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 24.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { Text("CHRONO", color = Lime, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp); Text("Таймеры", color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.SemiBold) }
-                IconButton(onClick = onPermissions) { Icon(Icons.Default.Settings, "Разрешения", tint = Muted) }
+    Scaffold(containerColor = Ink) { padding ->
+        Box(Modifier.fillMaxSize().padding(padding)) {
+            Column(Modifier.fillMaxSize().padding(horizontal = 22.dp)) {
+                Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("CHRONO", color = Lime, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp, modifier = Modifier.weight(1f))
+                    IconButton(onClick = onPermissions) { Icon(Icons.Default.Settings, "Разрешения", tint = Muted) }
+                }
+                if (timers.isEmpty()) {
+                    Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Время в вашем ритме", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Medium)
+                        Spacer(Modifier.height(8.dp)); Text("Создайте первый таймер кнопкой +", color = Muted)
+                    }
+                } else LazyColumn(contentPadding = PaddingValues(bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(timers, key = { it.id }) { timer ->
+                        val remaining = if (timer.running) ((timer.endsAtMs ?: clock) - clock).coerceAtLeast(0) else timer.remainingMs
+                        TimerCard(timer, remaining, onSelect, onToggle, onReset)
+                    }
+                }
             }
-            if (timers.isEmpty()) {
-                Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Время в вашем ритме", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Medium)
-                    Spacer(Modifier.height(8.dp)); Text("Создайте первый таймер кнопкой +", color = Muted)
-                }
-            } else LazyColumn(contentPadding = PaddingValues(bottom = 96.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(timers, key = { it.id }) { timer ->
-                    val remaining = if (timer.running) ((timer.endsAtMs ?: clock) - clock).coerceAtLeast(0) else timer.remainingMs
-                    TimerCard(timer, remaining, onSelect, onToggle, onReset)
-                }
+            Box(Modifier.align(Alignment.BottomCenter).padding(horizontal = 22.dp, vertical = 16.dp).fillMaxWidth().heightIn(min = 94.dp).background(SurfaceRaised, RoundedCornerShape(24.dp)).clickable(onClickLabel = "Добавить таймер", onClick = onAdd), contentAlignment = Alignment.Center) {
+                Text("+", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.sp)
             }
         }
     }
