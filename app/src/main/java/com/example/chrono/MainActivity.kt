@@ -15,6 +15,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -57,6 +58,7 @@ private val Ink = Color(0xFF090B0A)
 private val Surface = Color(0xFF151916)
 private val SurfaceRaised = Color(0xFF1E2420)
 private val Lime = Color(0xFFB8F36D)
+private val Pink = Color(0xFFFF5C63)
 private val Muted = Color(0xFF8B938D)
 
 class MainActivity : ComponentActivity() {
@@ -186,25 +188,34 @@ private fun HomeScreen(timers: List<Timer>, notificationsAllowed: Boolean, onSel
 @Composable
 private fun TimerCard(timer: Timer, remaining: Long, onSelect: (Timer) -> Unit, onToggle: (Timer) -> Unit, onReset: (Timer) -> Unit) {
     val isPaused = !timer.running && !timer.alarming && timer.remainingMs > 0 && timer.remainingMs < timer.durationMs
+    val isActive = timer.running || timer.alarming || isPaused
+    val cardShape = RoundedCornerShape(24.dp)
     val startLabel = when {
         timer.alarming -> "Стоп"
         timer.running -> "Пауза"
         isPaused -> "Продолжить"
         else -> "Старт"
     }
-    Row(Modifier.fillMaxWidth().background(Surface, RoundedCornerShape(24.dp)).clickable { onSelect(timer) }.padding(start = 20.dp, top = 18.dp, end = 12.dp, bottom = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        Modifier.fillMaxWidth()
+            .background(Surface, cardShape)
+            .border(2.dp, if (isActive) Pink else Color.Transparent, cardShape)
+            .clickable { onSelect(timer) }
+            .padding(start = 20.dp, top = 18.dp, end = 12.dp, bottom = 18.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Column(Modifier.weight(1f)) {
             Text(timer.name, color = Muted, fontSize = 14.sp)
             Spacer(Modifier.height(4.dp))
             Text(formatTime(remaining), color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.sp)
             if (timer.alarming) Text("ЗВУЧИТ", color = Lime, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
-            if (isPaused) Text("НА ПАУЗЕ", color = Color(0xFFFF5C63), fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
+            if (isPaused) Text("НА ПАУЗЕ", color = Pink, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
         }
         CircleActionButton(background = Ink, onClick = { onReset(timer) }) {
             Icon(Icons.Default.Refresh, "Сбросить", tint = Muted, modifier = Modifier.size(24.dp))
         }
         Spacer(Modifier.width(12.dp))
-        CircleActionButton(background = Lime, onClick = { onToggle(timer) }) {
+        CircleActionButton(background = if (isActive) Pink else Lime, onClick = { onToggle(timer) }) {
             Icon(
                 when {
                     timer.alarming -> Icons.Default.Stop
@@ -253,7 +264,7 @@ private fun TimerEditor(timer: Timer, onBack: () -> Unit, onSave: (Timer) -> Uni
                 if (duration > 0) onSave(timer.copy(name = name.trim().ifBlank { timer.name }, durationMs = duration, remainingMs = duration, endsAtMs = null, running = false, alarming = false))
             }, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Lime, contentColor = Ink)) { Text("Сохранить", fontWeight = FontWeight.Bold) }
             Spacer(Modifier.height(12.dp))
-            Button(onClick = { onDelete(timer.id) }, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF242B28), contentColor = Color(0xFFFF5C63))) { Icon(Icons.Default.Delete, null); Spacer(Modifier.width(8.dp)); Text("Удалить таймер", fontWeight = FontWeight.Bold) }
+            Button(onClick = { onDelete(timer.id) }, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF242B28), contentColor = Pink)) { Icon(Icons.Default.Delete, null); Spacer(Modifier.width(8.dp)); Text("Удалить таймер", fontWeight = FontWeight.Bold) }
         }
     }
 }
