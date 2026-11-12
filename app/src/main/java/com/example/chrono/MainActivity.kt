@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -35,8 +36,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -183,7 +186,12 @@ private fun HomeScreen(timers: List<Timer>, notificationsAllowed: Boolean, onSel
 @Composable
 private fun TimerCard(timer: Timer, remaining: Long, onSelect: (Timer) -> Unit, onToggle: (Timer) -> Unit, onReset: (Timer) -> Unit) {
     val isPaused = !timer.running && !timer.alarming && timer.remainingMs > 0 && timer.remainingMs < timer.durationMs
-    val isActive = timer.running || timer.alarming || isPaused
+    val startLabel = when {
+        timer.alarming -> "Стоп"
+        timer.running -> "Пауза"
+        isPaused -> "Продолжить"
+        else -> "Старт"
+    }
     Row(Modifier.fillMaxWidth().background(Surface, RoundedCornerShape(24.dp)).clickable { onSelect(timer) }.padding(start = 20.dp, top = 18.dp, end = 12.dp, bottom = 18.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(timer.name, color = Muted, fontSize = 14.sp)
@@ -192,15 +200,31 @@ private fun TimerCard(timer: Timer, remaining: Long, onSelect: (Timer) -> Unit, 
             if (timer.alarming) Text("ЗВУЧИТ", color = Lime, fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
             if (isPaused) Text("НА ПАУЗЕ", color = Color(0xFFFF5C63), fontSize = 10.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
         }
-        IconButton(onClick = { onReset(timer) }) { Icon(Icons.Default.Refresh, "Сбросить", tint = Muted) }
-        IconButton(onClick = { onToggle(timer) }, modifier = Modifier.size(52.dp).background(if (isActive) Color(0xFFFF5C63) else Lime, RoundedCornerShape(18.dp))) {
+        CircleActionButton(background = Ink, onClick = { onReset(timer) }) {
+            Icon(Icons.Default.Refresh, "Сбросить", tint = Muted, modifier = Modifier.size(24.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        CircleActionButton(background = Lime, onClick = { onToggle(timer) }) {
             Icon(
-                if (timer.running || timer.alarming) Icons.Default.Stop else if (isPaused) Icons.Default.Pause else Icons.Default.PlayArrow,
-                if (timer.running || timer.alarming) "Стоп" else if (isPaused) "Продолжить" else "Старт",
-                tint = Ink
+                when {
+                    timer.alarming -> Icons.Default.Stop
+                    timer.running -> Icons.Default.Pause
+                    else -> Icons.Default.PlayArrow
+                },
+                startLabel,
+                tint = Ink,
+                modifier = Modifier.size(24.dp)
             )
         }
     }
+}
+
+@Composable
+private fun CircleActionButton(background: Color, onClick: () -> Unit, content: @Composable () -> Unit) {
+    Box(
+        Modifier.size(52.dp).clip(CircleShape).background(background).clickable(role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) { content() }
 }
 
 @Composable
