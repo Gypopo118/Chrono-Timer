@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -43,7 +44,9 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.chrono.alarm.TimerScheduler
+import com.example.chrono.alarm.TimerService
 import com.example.chrono.data.Timer
+import com.example.chrono.util.formatTime
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -54,20 +57,23 @@ private val Lime = Color(0xFFB8F36D)
 private val Muted = Color(0xFF8B938D)
 
 class MainActivity : ComponentActivity() {
-    private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    private val notificationsAllowed = mutableStateOf(false)
+    private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> notificationsAllowed.value = granted }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        notificationsAllowed.value = hasNotificationsPermission()
         val dao = (application as ChronoApp).database.timers()
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(primary = Lime, background = Ink, surface = Surface, onSurface = Color.White)) {
                 val timers by dao.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
                 var selected by remember { mutableStateOf<Timer?>(null) }
+                var showNotificationHelp by remember { mutableStateOf(false) }
                 val scope = rememberCoroutineScope()
                 if (selected != null) {
-                    TimerEditor(selected!!, onBack = { selected = null }, onSave = { updated -> scope.launch { TimerScheduler.cancel(this@MainActivity, updated.id); if (selected!!.alarming) stopAlarmService(updated.id); dao.put(updated); if (updated.running) TimerScheduler.schedule(this@MainActivity, updated); selected = null } }, onDelete = { id -> scope.launch { TimerScheduler.cancel(this@MainActivity, id); if (selected!!.alarming) stopAlarmService(id); dao.delete(id); selected = null } })
+                    TimerEditor(selected!!, onBack = { selected = null }, onSave = { updated -> scope.launch { TimerScheduler.cancel(this@MainActivity, updated.id); if (selected!!.alarming) stopAlarmService(updated.id); dao.put(updated); if (updated.running) TimerScheduler.schedule(this@MainActivity, updated); TimerService.remove(this@MainActivity, updated.id); selected = null } }, onDelete = { id -> scope.launch { TimerScheduler.cancel(this@MainActivity, id); if (selected!!.alarming) stopAlarmService(id); dao.delete(id); TimerService.remove(this@MainActivity, id); selected = null } })
                 } else {
-                    HomeScreen(timers = timers, onSelect = { selected = it }, onAdd = {
+                    HomeScreen(timers = timers, notificationsAllowed = notificationsAllowed.value, onSelect = { selected = it }, onAdd = {
                         scope.launch {
                             val prefs = getSharedPreferences("chrono", MODE_PRIVATE)
                             val next = prefs.getInt("next_name", 1)
@@ -80,17 +86,50 @@ class MainActivity : ComponentActivity() {
                         if (timer.alarming) {
                             stopAlarmService(timer.id)
                             dao.put(timer.copy(remainingMs = timer.durationMs, endsAtMs = null, running = false, alarming = false))
+                            TimerService.remove(this@MainActivity, timer.id)
                         } else if (timer.running) {
                             TimerScheduler.cancel(this@MainActivity, timer.id)
                             dao.put(timer.copy(remainingMs = ((timer.endsAtMs ?: 0) - System.currentTimeMillis()).coerceAtLeast(0), endsAtMs = null, running = false))
+                            TimerService.refresh(this@MainActivity)
                         } else {
                             val started = timer.copy(endsAtMs = System.currentTimeMillis() + timer.remainingMs, running = true, alarming = false)
                             dao.put(started); TimerScheduler.schedule(this@MainActivity, started)
+                            TimerService.start(this@MainActivity, started)
+                            if (shouldExplainNotificationPermission()) showNotificationHelp = true
                         }
-                    } }, onReset = { timer -> scope.launch { TimerScheduler.cancel(this@MainActivity, timer.id); if (timer.alarming) stopAlarmService(timer.id); dao.put(timer.copy(remainingMs = timer.durationMs, endsAtMs = null, running = false, alarming = false)) } }, onPermissions = { openAlarmSettings() })
+                    } }, onReset = { timer -> scope.launch { TimerScheduler.cancel(this@MainActivity, timer.id); if (timer.alarming) stopAlarmService(timer.id); dao.put(timer.copy(remainingMs = timer.durationMs, endsAtMs = null, running = false, alarming = false)); TimerService.remove(this@MainActivity, timer.id) } }, onPermissions = { openAlarmSettings() }, onEnableNotifications = { openNotificationSettings() })
+                }
+                if (showNotificationHelp) {
+                    AlertDialog(
+                        onDismissRequest = { showNotificationHelp = false },
+                        title = { Text("Уведомление в шторке") },
+                        text = { Text("Разрешите уведомления, чтобы видеть время таймера в шторке и управлять им, не открывая приложение. Без разрешения таймер продолжит работать в приложении.") },
+                        confirmButton = { TextButton(onClick = { showNotificationHelp = false; if (Build.VERSION.SDK_INT >= 33) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) }) { Text("Разрешить") } },
+                        dismissButton = { TextButton(onClick = { showNotificationHelp = false }) { Text("Не сейчас") } }
+                    )
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        notificationsAllowed.value = hasNotificationsPermission()
+    }
+
+    private fun hasNotificationsPermission(): Boolean =
+        Build.VERSION.SDK_INT < 33 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+
+    private fun shouldExplainNotificationPermission(): Boolean {
+        if (Build.VERSION.SDK_INT < 33 || hasNotificationsPermission()) return false
+        val prefs = getSharedPreferences("chrono", MODE_PRIVATE)
+        if (prefs.getBoolean("notification_help_shown", false)) return false
+        prefs.edit().putBoolean("notification_help_shown", true).apply()
+        return true
+    }
+
+    private fun openNotificationSettings() {
+        startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, packageName))
     }
 
     private fun openAlarmSettings() {
@@ -107,7 +146,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun HomeScreen(timers: List<Timer>, onSelect: (Timer) -> Unit, onAdd: () -> Unit, onToggle: (Timer) -> Unit, onReset: (Timer) -> Unit, onPermissions: () -> Unit) {
+private fun HomeScreen(timers: List<Timer>, notificationsAllowed: Boolean, onSelect: (Timer) -> Unit, onAdd: () -> Unit, onToggle: (Timer) -> Unit, onReset: (Timer) -> Unit, onPermissions: () -> Unit, onEnableNotifications: () -> Unit) {
     var clock by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) { while (true) { delay(500); clock = System.currentTimeMillis() } }
     Scaffold(containerColor = Ink) { padding ->
@@ -116,6 +155,11 @@ private fun HomeScreen(timers: List<Timer>, onSelect: (Timer) -> Unit, onAdd: ()
                 Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 24.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("CHRONO", color = Lime, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp, modifier = Modifier.weight(1f))
                     IconButton(onClick = onPermissions) { Icon(Icons.Default.Settings, "Разрешения", tint = Muted) }
+                }
+                if (!notificationsAllowed) {
+                    Row(Modifier.fillMaxWidth().padding(bottom = 16.dp).background(SurfaceRaised, RoundedCornerShape(16.dp)).clickable(onClick = onEnableNotifications).padding(horizontal = 14.dp, vertical = 12.dp)) {
+                        Text("Уведомления выключены — время таймера не появится в шторке. Нажмите, чтобы включить.", color = Lime, fontSize = 13.sp)
+                    }
                 }
                 if (timers.isEmpty()) {
                     Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -192,9 +236,3 @@ private fun TimerEditor(timer: Timer, onBack: () -> Unit, onSave: (Timer) -> Uni
 
 @Composable
 private fun fieldColors() = OutlinedTextFieldDefaults.colors(focusedBorderColor = Lime, focusedLabelColor = Lime, unfocusedBorderColor = Color(0xFF39413B), focusedTextColor = Color.White, unfocusedTextColor = Color.White)
-
-private fun formatTime(ms: Long): String {
-    val total = (ms / 1000).coerceAtLeast(0)
-    val h = total / 3600; val m = (total % 3600) / 60; val s = total % 60
-    return if (h > 0) "%02d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
-}

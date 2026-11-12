@@ -30,6 +30,7 @@ class AlarmService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val id = intent?.getLongExtra("timer_id", -1) ?: -1
         if (intent?.action == ACTION_STOP) { stopAlarm(id); return START_NOT_STICKY }
+        TimerService.remove(this, id)
         startForeground(NOTIFICATION_ID, notification(id))
         scope.launch {
             val dao = (application as ChronoApp).database.timers()
