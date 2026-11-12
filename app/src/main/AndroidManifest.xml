@@ -3,8 +3,10 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <application android:name=".ChronoApp" android:allowBackup="true" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:label="Chrono" android:theme="@style/Theme.Chrono" android:usesCleartextTraffic="false">
         <activity android:name=".alarm.AlarmActivity" android:exported="true" android:showWhenLocked="true" android:turnScreenOn="true" android:excludeFromRecents="true" />
@@ -16,5 +18,8 @@
             <intent-filter><action android:name="android.intent.action.BOOT_COMPLETED"/><action android:name="android.intent.action.MY_PACKAGE_REPLACED"/><action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED"/></intent-filter>
         </receiver>
         <service android:name=".alarm.AlarmService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
+        <service android:name=".alarm.TimerService" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Ongoing countdown timer with remaining time and pause/reset controls" />
+        </service>
     </application>
 </manifest>
